@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "A Full-fledge production grade backend",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon src/index.js"
   },
   "keywords": [
     "backend",
@@ -12,5 +13,9 @@
     "social-media"
   ],
   "author": "Yash R",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "prettier": "^3.1.1"
+  }
 }
