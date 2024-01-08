@@ -1,0 +1,16 @@
+{
+  "name": "node-js-backend",
+  "version": "1.0.0",
+  "description": "A Full-fledge production grade backend",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "backend",
+    "node",
+    "social-media"
+  ],
+  "author": "Yash R",
+  "license": "ISC"
+}
