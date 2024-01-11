@@ -46,6 +46,8 @@ const registerUser = asyncHandler(async (req, res) => {
   //send response
 
   const { fullName, username, email, password } = req.body;
+  // console.log(req.body);
+  // console.log(req.files);
 
   if (
     [fullName, username, email, password].some((field) => field?.trim() == "")
@@ -112,7 +114,7 @@ const loginUser = asyncHandler(async (req, res) => {
   //send res, important to send cookies
 
   const { username, email, password } = req.body;
-  console.log(req.body);
+  // console.log(req.body);
 
   if (!username && !email) {
     throw new ApiError(401, "username or email is required");
@@ -122,8 +124,10 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Password is requires!!");
   }
 
+  // console.log(req.body);
+
   const user = await User.findOne({
-    $or: [{ username, email }],
+    $or: [{ username }, { email }],
   });
 
   if (!user) {
@@ -298,6 +302,7 @@ const updateUserData = asyncHandler(async (req, res) => {
   //return updated data in res
 
   const { fullName, email } = req.body;
+  console.log(req.body);
 
   if (!fullName || !email) {
     throw new ApiError(401, "All fields are required!!");
@@ -319,8 +324,7 @@ const updateUserData = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, "Information updated successfully."),
-      updatedUser
+      new ApiResponse(200, "Information updated successfully.", updatedUser)
     );
 });
 
@@ -331,7 +335,8 @@ const updateAvatar = asyncHandler(async (req, res) => {
   //update in database
   //return res
 
-  const avatarLocalPath = req.file?.avatar[0]?.path;
+  // console.log(req.file);
+  const avatarLocalPath = req.file?.path;
 
   if (!avatarLocalPath) {
     throw new ApiError(
@@ -353,7 +358,7 @@ const updateAvatar = asyncHandler(async (req, res) => {
     req.user?._id,
     {
       $set: {
-        avatar: avatarUrl,
+        avatar: avatarUrl.url,
       },
     },
     { new: true }
@@ -375,7 +380,7 @@ const updateCoverImage = asyncHandler(async (req, res) => {
   //update in database
   //return res
 
-  const coverImageLocalPath = req.file?.coverImage[0]?.path;
+  const coverImageLocalPath = req.file?.path;
 
   if (!coverImageLocalPath) {
     throw new ApiError(401, "Something went wrong while getting cover image!!");
@@ -394,7 +399,7 @@ const updateCoverImage = asyncHandler(async (req, res) => {
     req.user?._id,
     {
       $set: {
-        coverImage: coverImageUrl,
+        coverImage: coverImageUrl.url,
       },
     },
     { new: true }
@@ -547,7 +552,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
       },
     },
     {
-      $addFields: {
+      $project: {
         watchHistory: "$watchHistory",
       },
     },
@@ -563,7 +568,11 @@ const getWatchHistory = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, "Successfully fetched watch history", watchHistory)
+      new ApiResponse(
+        200,
+        "Successfully fetched watch history",
+        watchHistory[0]
+      )
     );
 });
 
