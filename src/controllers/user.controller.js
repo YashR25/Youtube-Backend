@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { User } from "../models/user.models.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import jwt from "jsonwebtoken";
 
 const generateAccessTokenAndRefreshToken = async (userId) => {
   //find user by id
@@ -198,4 +199,226 @@ const logoutUser = asyncHandler(async (req, res) => {
   }
 });
 
-export { registerUser, loginUser, logoutUser };
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  //get refreshtoken from cookies
+  //check if refreshtoken exist
+  //verify refreshtoken
+  //compare with database refreshtoken
+  //generate new accessandrefresh token
+  //return response
+
+  const token = req.cookies?.refreshToken || req.body?.refreshToken;
+
+  if (!token) {
+    throw new ApiError(401, "Refresh token not exist!!");
+  }
+
+  const decodedToken = await jwt.verify(
+    token,
+    process.env.REFRESH_TOKEN_SECRET
+  );
+
+  if (!decodedToken) {
+    throw new ApiError(401, "refresh token expired!!");
+  }
+
+  const user = await User.findById(decodedToken._id);
+
+  if (!user) {
+    throw new ApiError(401, "Invalid Refresh Token!!");
+  }
+
+  if (token !== user.refreshToken) {
+    throw new ApiError(401, "Refresh Token expired or used!!");
+  }
+
+  const { accessToken, refreshToken } = generateAccessTokenAndRefreshToken(
+    user._id
+  );
+
+  await User.findByIdAndUpdate(
+    user._id,
+    {
+      $set: {
+        refreshToken: refreshToken,
+      },
+    },
+    { new: true }
+  );
+
+  return res.status(200).json(
+    new ApiResponse(200, "Successfully refreshed token.", {
+      refreshToken,
+      accessToken,
+    })
+  );
+});
+
+const changePassword = asyncHandler(async (req, res) => {
+  //get data from req
+  //validate data
+  //get current user from middleware
+  //check existing password is valid or not
+  //update password in database
+  //return res
+
+  const { password, newPassword } = req.body;
+
+  if (!password || !newPassword) {
+    throw new ApiError(401, "All fields are required!!");
+  }
+
+  const user = await User.findById(req.user?._id);
+
+  if (!user) {
+    throw new ApiError(401, "user not exist!!");
+  }
+
+  const isPasswordCorrect = await user.isPasswordCorrect(password);
+
+  if (!isPasswordCorrect) {
+    throw new ApiError(401, "Password is incorrect!!");
+  }
+
+  user.password = newPassword;
+  //password will be hashed because of pre hook used in user.models.js file
+  user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Password Updated Successfully."));
+});
+
+const updateUserData = asyncHandler(async (req, res) => {
+  //get data from req
+  //validate data
+  //get current user from middleware
+  //update data in database
+  //return updated data in res
+
+  const { fullName, email } = req.body;
+
+  if (!fullName || !email) {
+    throw new ApiError(401, "All fields are required!!");
+  }
+
+  const user = req.user;
+
+  const updatedUser = await User.findByIdAndUpdate(
+    user._id,
+    {
+      $set: {
+        fullName: fullName,
+        email: email,
+      },
+    },
+    { new: true }
+  );
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, "Information updated successfully."),
+      updatedUser
+    );
+});
+
+const updateAvatar = asyncHandler(async (req, res) => {
+  //get avatar from middleware
+  //validate avatar
+  //upload on cloudinary and check if uploaded
+  //update in database
+  //return res
+
+  const avatarLocalPath = req.file?.avatar[0]?.path;
+
+  if (!avatarLocalPath) {
+    throw new ApiError(
+      401,
+      "Something went wrong while getting avatar image!!"
+    );
+  }
+
+  const avatarUrl = await uploadOnCloudinary(avatarLocalPath);
+
+  if (!avatarUrl) {
+    throw new ApiError(
+      401,
+      "Something went wrong while uploading avatar on cloudinary!!"
+    );
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        avatar: avatarUrl,
+      },
+    },
+    { new: true }
+  );
+
+  if (!updatedUser) {
+    throw new ApiError(401, "Something went wrong while updating in database");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "avatar updated successfully"));
+});
+
+const updateCoverImage = asyncHandler(async (req, res) => {
+  //get avatar from middleware
+  //validate avatar
+  //upload on cloudinary and check if uploaded
+  //update in database
+  //return res
+
+  const coverImageLocalPath = req.file?.coverImage[0]?.path;
+
+  if (!coverImageLocalPath) {
+    throw new ApiError(401, "Something went wrong while getting cover image!!");
+  }
+
+  const coverImageUrl = await uploadOnCloudinary(coverImageLocalPath);
+
+  if (!coverImageUrl) {
+    throw new ApiError(
+      401,
+      "Something went wrong while uploading cover Image on cloudinary!!"
+    );
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        coverImage: coverImageUrl,
+      },
+    },
+    { new: true }
+  );
+
+  if (!updatedUser) {
+    throw new ApiError(401, "Something went wrong while updating in database");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "coverImage updated successfully"));
+});
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  //get current user from middleware
+  //return res
+
+  const user = req.user;
+
+  return res.status(200).json(
+    new ApiResponse(200, "current user successfully fetched.", {
+      currentUser: user,
+    })
+  );
+});
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken };
