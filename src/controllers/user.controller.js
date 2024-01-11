@@ -4,6 +4,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { User } from "../models/user.models.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const generateAccessTokenAndRefreshToken = async (userId) => {
   //find user by id
@@ -204,7 +205,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   //check if refreshtoken exist
   //verify refreshtoken
   //compare with database refreshtoken
-  //generate new accessandrefresh token
+  //generate new access and refresh token
   //return response
 
   const token = req.cookies?.refreshToken || req.body?.refreshToken;
@@ -495,4 +496,87 @@ const getChannelInfo = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Channel Fetched Successfully.", channel[0]));
 });
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+const getWatchHistory = asyncHandler(async (req, res) => {
+  //get user from middlerware
+  //use userId and write aggregate pipelines to obtain watchHistory
+  //return res
+
+  const user = req.user;
+
+  if (!user) {
+    throw new ApiError(400, "user not exist!!");
+  }
+
+  const watchHistory = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(user._id),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+            },
+          },
+          {
+            $addFields: {
+              owner: {
+                $first: "$owner",
+              },
+            },
+          },
+          {
+            $project: {
+              username: 1,
+              fullName: 1,
+              email: 1,
+              avatar: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $addFields: {
+        watchHistory: "$watchHistory",
+      },
+    },
+  ]);
+
+  if (!watchHistory) {
+    throw new ApiError(
+      400,
+      "Soemthing went wrong during fetching watchHistory"
+    );
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, "Successfully fetched watch history", watchHistory)
+    );
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  changePassword,
+  updateAvatar,
+  updateUserData,
+  updateCoverImage,
+  getWatchHistory,
+  getChannelInfo,
+  getCurrentUser,
+};
