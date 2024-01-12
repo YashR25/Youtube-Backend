@@ -138,19 +138,173 @@ const deleteVideo = asyncHandler(async (req, res) => {
 
 const updateVideo = asyncHandler(async (req, res) => {
   //get videoId from params
+  //get data from body
+  //check if videoId exist and if data are not empty
+  //fetch video from database using id
+  //check if video exist
+  //if exist than update details
+  //return res
+  const { videoId } = req.params;
+  const { title, description } = req.body;
+
+  if (!videoId) {
+    throw new ApiError(401, "videoId not exist!!");
+  }
+
+  const video = await Video.findById(videoId);
+
+  if (!video) {
+    throw new ApiError(401, "video you are tying to update is not available!!");
+  }
+
+  if (title) {
+    video.title = title;
+  }
+
+  if (description) {
+    video.description = description;
+  }
+
+  const updatedVideo = await video.save({ validateBeforeSave: false });
+
+  if (!updatedVideo) {
+    throw new ApiError(
+      500,
+      "Something went wrong while updating video details!!!"
+    );
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, "Video details updated successfully.", updateVideo)
+    );
 });
 
 const getVideoById = asyncHandler(async (req, res) => {
   //get videoId from params
+  //check if videoId exist
+  //fetch video from database using id
+  //check if video exist
+  //if exist than return res
+
+  const { videoId } = req.params;
+
+  if (!videoId) {
+    throw new ApiError(401, "VideoId does not exist!!");
+  }
+
+  const video = await Video.findById(videoId);
+
+  if (!video) {
+    throw new ApiError(401, "Video you are trying to get is not available.");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Video fetched successfully.", video));
 });
 
 const getAllVideos = asyncHandler(async (req, res) => {
   //get paginate querys from req
+  //get all videos from database
+  //check if fetched successfully
+  //return res
   const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
+
+  let videosAggregate;
+
+  if (userId) {
+    videosAggregate = await Video.aggregate([
+      {
+        $match: {
+          owner: userId,
+        },
+      },
+    ]);
+  } else if (query) {
+    videosAggregate = await Video.aggregate([
+      {
+        $match: {
+          $text: {
+            $search: query,
+          },
+        },
+      },
+    ]);
+  } else {
+    videosAggregate = await Video.aggregate([]);
+  }
+
+  const result = await Video.aggregatePaginate(videosAggregate, {
+    page: page,
+    limit: limit,
+    sort: { [sortBy]: sortType },
+  });
+
+  /* return result will be type of below
+
+    result.docs
+    result.totalDocs = 100
+    result.limit = 10
+    result.page = 1
+    result.totalPages = 10
+    result.hasNextPage = true
+    result.nextPage = 2
+    result.hasPrevPage = false
+    result.prevPage = null
+  */
+
+  if (!result) {
+    throw new ApiError(500, "Something went wrong while fetching videos!!");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, "All videos fetched successfully!!", result.docs)
+    );
 });
 
 const togglePublishedStatus = asyncHandler(async (req, res) => {
   //get videoId from params
+  //check if videoId exist
+  //fetch video from database using id
+  //toggle published true/false according to value in video
+  //return res
+  const { videoId } = req.params;
+  if (!videoId) {
+    throw new ApiError(400, "VideoId not exist!!");
+  }
+
+  const video = await Video.findById(videoId);
+
+  if (!video) {
+    throw new ApiError(400, "video not available!!");
+  }
+
+  if (video.isPublished) {
+    video.isPublished = false;
+  } else {
+    video.isPublished = true;
+  }
+
+  const updatedVideo = await video.save({ validateBeforeSave: false });
+
+  if (!updatedVideo) {
+    throw new ApiError(500, "Something went wrong while updating video!!");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Video updated successfully.", updateVideo));
 });
 
-export { publishVideo, deleteVideo, updateVideo, getVideoById, getAllVideos };
+export {
+  publishVideo,
+  deleteVideo,
+  updateVideo,
+  getVideoById,
+  getAllVideos,
+  togglePublishedStatus,
+};
