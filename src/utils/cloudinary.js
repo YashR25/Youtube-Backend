@@ -12,6 +12,8 @@ const uploadOnCloudinary = async (localFilePath) => {
     if (!localFilePath) return null;
     const response = await cloudinary.uploader.upload(localFilePath, {
       resource_type: "auto",
+      media_metadata: true,
+      folder: "youtube",
     });
     // console.log("file is uploaded on cloudinary", response.url);
     fs.unlinkSync(localFilePath);
@@ -22,4 +24,20 @@ const uploadOnCloudinary = async (localFilePath) => {
   }
 };
 
-export { uploadOnCloudinary };
+const removeFromCloudinary = async (publicId, resource_type) => {
+  try {
+    const response = await cloudinary.uploader.destroy(publicId, {
+      resource_type: resource_type,
+    });
+    // console.log(response);
+    if (response.result == "ok") {
+      return true;
+    } else {
+      return false;
+    }
+  } catch (error) {
+    return false;
+  }
+};
+
+export { uploadOnCloudinary, removeFromCloudinary };
