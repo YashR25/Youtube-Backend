@@ -8,7 +8,7 @@ import {
   getUserPlaylist,
   removeVideoFromPlaylist,
   updatePlaylist,
-} from "../controllers/playlist.controller";
+} from "../controllers/playlist.controller.js";
 
 const router = Router();
 

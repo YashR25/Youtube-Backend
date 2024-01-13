@@ -5,7 +5,7 @@ import {
   toggleCommentLike,
   toggleTweetLike,
   toggleVideoLike,
-} from "../controllers/like.controller";
+} from "../controllers/like.controller.js";
 
 const router = Router();
 
