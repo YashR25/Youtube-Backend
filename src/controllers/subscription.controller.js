@@ -74,12 +74,14 @@ const getChannelSubscribersUser = asyncHandler(async (req, res) => {
         localField: "subscriber",
         foreignField: "_id",
         as: "subscribers",
-        pipeline: {
-          $projectFields: {
-            username: 1,
-            avatar: 1,
+        pipeline: [
+          {
+            $projectFields: {
+              username: 1,
+              avatar: 1,
+            },
           },
-        },
+        ],
       },
     },
     {
@@ -126,12 +128,14 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
         localField: "channel",
         foreignField: "_id",
         as: "subscriptions",
-        pipeline: {
-          $projectFields: {
-            username: 1,
-            avatar: 1,
+        pipeline: [
+          {
+            $projectFields: {
+              username: 1,
+              avatar: 1,
+            },
           },
-        },
+        ],
       },
     },
     {

@@ -90,14 +90,14 @@ const removeTweet = asyncHandler(async (req, res) => {
 
   const response = await Tweet.deleteOne({ _id: tweet._id });
 
-  if (response && response.ok) {
+  if (!response || (response && response.ok != 1)) {
     throw new ApiError(500, "Something went wrong while deleting tweet");
   }
 
   const likeResponse = await Like.find({ tweet: tweetId });
 
-  if (likeResponse) {
-    await Like.deleteOne({ _id: likeResponse._id });
+  if (likeResponse && likeResponse.length > 0) {
+    await Like.deleteMany({ tweet: tweetId });
   }
 
   return res
