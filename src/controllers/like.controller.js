@@ -1,4 +1,7 @@
 import { asyncHandler } from "../utils/AsyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
+import { Like } from "../models/like.models.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
   //get videoId from Params
@@ -8,14 +11,161 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
   //if exist than update like entry else add entry
   //check if updated successfully
   //return res
+
+  const { videoId } = req.params;
+
+  if (!videoId) {
+    throw new ApiError(400, "videoId not exist!!");
+  }
+
+  const like = await Like.aggregate([
+    {
+      $match: {
+        likedBy: req.user?._id,
+      },
+    },
+    {
+      $match: {
+        video: videoId,
+      },
+    },
+  ]);
+
+  if (!like) {
+    throw new ApiError(
+      500,
+      "Something went wrong while fetching data from db!!"
+    );
+  }
+
+  if (like.length < 0) {
+    await Like.create({
+      likedBy: req.user?._id,
+      video: videoId,
+    });
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, "Liked video successfully.", { isLiked: true })
+      );
+  } else {
+    await Like.deleteOne({ _id: like[0]._id });
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, "unLiked video successfully.", { isLiked: false })
+      );
+  }
 });
 
 const toggleCommentLike = asyncHandler(async (req, res) => {
   //get CommentId from params
+  //check if owner/current_userId exist in db (likes collection)
+  //if exist than check below else add entry
+  //check if CommentId already exist in current entry
+  //if exist than update like entry else add entry
+  //check if updated successfully
+  //return res
+
+  const { commentId } = req.params;
+
+  if (!commentId) {
+    throw new ApiError(400, "commentId not exist!!");
+  }
+
+  const like = await Like.aggregate([
+    {
+      $match: {
+        likedBy: req.user?._id,
+      },
+    },
+    {
+      $match: {
+        comment: commentId,
+      },
+    },
+  ]);
+
+  if (!like) {
+    throw new ApiError(
+      500,
+      "Something went wrong while fetching data from db!!"
+    );
+  }
+
+  if (like.length < 0) {
+    await Like.create({
+      likedBy: req.user?._id,
+      comment: commentId,
+    });
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, "Liked comment successfully.", { isLiked: true })
+      );
+  } else {
+    await Like.deleteOne({ _id: like[0]._id });
+    return res.status(200).json(
+      new ApiResponse(200, "unLiked comment successfully.", {
+        isLiked: false,
+      })
+    );
+  }
 });
 
 const toggleTweetLike = asyncHandler(async (req, res) => {
   //get tweetId from params
+  //check if owner/current_userId exist in db (likes collection)
+  //if exist than check below else add entry
+  //check if tweetId already exist in current entry
+  //if exist than update like entry else add entry
+  //check if updated successfully
+  //return res
+
+  const { tweetId } = req.params;
+
+  if (!tweetId) {
+    throw new ApiError(400, "tweetId not exist!!");
+  }
+
+  const like = await Like.aggregate([
+    {
+      $match: {
+        likedBy: req.user?._id,
+      },
+    },
+    {
+      $match: {
+        tweet: tweetId,
+      },
+    },
+  ]);
+
+  if (!like) {
+    throw new ApiError(
+      500,
+      "Something went wrong while fetching data from db!!"
+    );
+  }
+
+  if (like.length < 0) {
+    await Like.create({
+      likedBy: req.user?._id,
+      tweet: tweetId,
+    });
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, "Liked tweet successfully.", { isLiked: true })
+      );
+  } else {
+    await Like.deleteOne({ _id: like[0]._id });
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, "unLiked tweet successfully.", { isLiked: false })
+      );
+  }
 });
 
 const getLikedVideos = asyncHandler(async (req, res) => {
@@ -23,6 +173,64 @@ const getLikedVideos = asyncHandler(async (req, res) => {
   //get videos from likes collection in db by matching userId
   //check if fetched successfully
   //return res
+
+  const userId = req.user?._id;
+
+  const likedVideos = await Like.aggregate([
+    {
+      $match: {
+        likedBy: userId,
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "video",
+        foreignField: "_id",
+        as: "video",
+        pipeline: {
+          $lookup: {
+            from: "users",
+            localField: "owner",
+            foreignField: "_id",
+            as: "owner",
+          },
+          $addFields: {
+            owner: {
+              $first: "$owner",
+            },
+          },
+        },
+        $project: {
+          videoFile: 1,
+          thumbnail: 1,
+          title: 1,
+          description: 1,
+          duration: 1,
+          views: 1,
+          owner: 1,
+        },
+      },
+    },
+    {
+      $project: {
+        video: 1,
+      },
+    },
+  ]);
+
+  if (!likedVideos) {
+    throw new ApiError(
+      500,
+      "Something went wrong while fetching liked videos!!"
+    );
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, "All liked videos fetched succesfully.", likedVideos)
+    );
 });
 
-export { likeVideo, likeComment, likeTweet };
+export { toggleVideoLike, toggleCommentLike, toggleTweetLike, getLikedVideos };
