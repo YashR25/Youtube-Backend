@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/AsyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { Playlist } from "../models/playlist.models.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import mongoose from "mongoose";
 
 const getUserPlaylist = asyncHandler(async (req, res) => {
   //get userId from params
@@ -70,7 +71,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
   const playlist = await Playlist.aggregate([
     {
       $match: {
-        _id: playlistId,
+        _id: new mongoose.Types.ObjectId(playlistId),
       },
     },
     {
@@ -86,6 +87,15 @@ const getPlaylistById = asyncHandler(async (req, res) => {
               localField: "owner",
               foreignField: "_id",
               as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    username: 1,
+                    fullName: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
             },
           },
           {
@@ -121,7 +131,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(200, "Playlist fetched successfully.", playlist[0]);
+    .json(new ApiResponse(200, "Playlist fetched successfully.", playlist[0]));
 });
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
@@ -269,7 +279,9 @@ const updatePlaylist = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(200, "Playlist updated successfully.", updatedPlaylist);
+    .json(
+      new ApiResponse(200, "Playlist updated successfully.", updatedPlaylist)
+    );
 });
 
 export {

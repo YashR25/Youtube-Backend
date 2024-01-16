@@ -6,6 +6,7 @@ import {
 } from "../utils/cloudinary.js";
 import { Video } from "../models/video.models.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import mongoose from "mongoose";
 
 const publishVideo = asyncHandler(async (req, res) => {
   //get data from body
@@ -212,34 +213,47 @@ const getAllVideos = asyncHandler(async (req, res) => {
   //return res
   const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
 
-  let videosAggregate;
+  let pipeline = [];
 
-  if (userId) {
-    videosAggregate = await Video.aggregate([
-      {
-        $match: {
-          owner: userId,
+  if (query) {
+    console.log(query);
+    pipeline.push({
+      $search: {
+        index: "search-videos",
+        text: {
+          query: query,
+          path: ["title", "description"],
         },
       },
-    ]);
-  } else if (query) {
-    videosAggregate = await Video.aggregate([
-      {
-        $match: {
-          $text: {
-            $search: query,
-          },
-        },
-      },
-    ]);
-  } else {
-    videosAggregate = await Video.aggregate([]);
+    });
   }
 
+  if (userId) {
+    pipeline.push({
+      $match: {
+        owner: new mongoose.Types.ObjectId(userId),
+      },
+    });
+  }
+
+  pipeline.push({ $match: { isPublished: true } });
+
+  if (sortBy && sortType) {
+    console.log(sortBy, sortType);
+    pipeline.push({
+      $sort: {
+        [sortBy]: sortType === "asc" ? 1 : -1,
+      },
+    });
+  } else {
+    pipeline.push({ $sort: { createdAt: -1 } });
+  }
+
+  const videosAggregate = Video.aggregate(pipeline);
+
   const result = await Video.aggregatePaginate(videosAggregate, {
-    page: page,
-    limit: limit,
-    sort: { [sortBy]: sortType },
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
   });
 
   /* return result will be type of below
@@ -261,9 +275,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, "All videos fetched successfully!!", result.docs)
-    );
+    .json(new ApiResponse(200, "All videos fetched successfully!!", result));
 });
 
 const togglePublishedStatus = asyncHandler(async (req, res) => {

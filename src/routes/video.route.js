@@ -30,9 +30,10 @@ router.route("/").post(
 router.route("/:videoId").delete(verifyJwt, deleteVideo);
 router.route("/:videoId").patch(verifyJwt, updateVideo);
 router.route("/:videoId").get(verifyJwt, getVideoById);
-router.route("/allVideos").get(verifyJwt, getAllVideos);
+router.route("/").get(verifyJwt, getAllVideos);
+
 router
-  .route("/toggleIsPublished/:videoId")
-  .get(verifyJwt, togglePublishedStatus);
+  .route("/toggle/publish/:videoId")
+  .patch(verifyJwt, togglePublishedStatus);
 
 export default router;

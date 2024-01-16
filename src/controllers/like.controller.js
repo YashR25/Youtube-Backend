@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/AsyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { Like } from "../models/like.models.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import mongoose from "mongoose";
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
   //get videoId from Params
@@ -21,12 +22,12 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
   const like = await Like.aggregate([
     {
       $match: {
-        likedBy: req.user?._id,
+        likedBy: new mongoose.Types.ObjectId(req.user?._id),
       },
     },
     {
       $match: {
-        video: videoId,
+        video: new mongoose.Types.ObjectId(videoId),
       },
     },
   ]);
@@ -38,7 +39,7 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
     );
   }
 
-  if (like.length < 0) {
+  if (like.length <= 0) {
     await Like.create({
       likedBy: req.user?._id,
       video: videoId,
@@ -76,12 +77,12 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
   const like = await Like.aggregate([
     {
       $match: {
-        likedBy: req.user?._id,
+        likedBy: new mongoose.Types.ObjectId(req.user?._id),
       },
     },
     {
       $match: {
-        comment: commentId,
+        comment: new mongoose.Types.ObjectId(commentId),
       },
     },
   ]);
@@ -93,7 +94,7 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     );
   }
 
-  if (like.length < 0) {
+  if (like.length <= 0) {
     await Like.create({
       likedBy: req.user?._id,
       comment: commentId,
@@ -131,15 +132,17 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
   const like = await Like.aggregate([
     {
       $match: {
-        likedBy: req.user?._id,
+        likedBy: new mongoose.Types.ObjectId(req.user?._id),
       },
     },
     {
       $match: {
-        tweet: tweetId,
+        tweet: new mongoose.Types.ObjectId(tweetId),
       },
     },
   ]);
+
+  console.log(like);
 
   if (!like) {
     throw new ApiError(
@@ -148,7 +151,7 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
     );
   }
 
-  if (like.length < 0) {
+  if (like.length <= 0) {
     await Like.create({
       likedBy: req.user?._id,
       tweet: tweetId,
@@ -179,7 +182,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
   const likedVideos = await Like.aggregate([
     {
       $match: {
-        likedBy: userId,
+        likedBy: new mongoose.Types.ObjectId(userId),
       },
     },
     {
@@ -195,6 +198,16 @@ const getLikedVideos = asyncHandler(async (req, res) => {
               localField: "owner",
               foreignField: "_id",
               as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    username: 1,
+                    fullName: 1,
+                    email: 1,
+                    thumbnail: 1,
+                  },
+                },
+              ],
             },
           },
           {

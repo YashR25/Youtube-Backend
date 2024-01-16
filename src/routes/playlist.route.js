@@ -15,8 +15,10 @@ const router = Router();
 router.route("/user/:userId").get(verifyJwt, getUserPlaylist);
 router.route("/").post(verifyJwt, createPlaylist);
 router.route("/:playlistId").get(verifyJwt, getPlaylistById);
-router.route("/video/:videoId").post(verifyJwt, addVideoToPlaylist);
-router.route("/video/:videoId").delete(verifyJwt, removeVideoFromPlaylist);
+router.route("/video/:playlistId/:videoId").post(verifyJwt, addVideoToPlaylist);
+router
+  .route("/video/:playlistId/:videoId")
+  .delete(verifyJwt, removeVideoFromPlaylist);
 router.route("/:playlistId").delete(verifyJwt, deletePlaylist);
 router.route("/:playlistId").patch(verifyJwt, updatePlaylist);
 

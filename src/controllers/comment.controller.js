@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { Comment } from "../models/comment.models.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Like } from "../models/like.models.js";
+import mongoose from "mongoose";
 
 const getVideoComments = asyncHandler(async (req, res) => {
   //get VideoId from Params
@@ -17,10 +18,10 @@ const getVideoComments = asyncHandler(async (req, res) => {
     throw new ApiError(400, "videoId not exist!!");
   }
 
-  const commentAggregate = await Comment.aggregate([
+  const commentAggregate = Comment.aggregate([
     {
       $match: {
-        video: videoId,
+        video: new mongoose.Types.ObjectId(videoId),
       },
     },
   ]);
@@ -39,7 +40,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "comments fetched successfully.", result.docs));
+    .json(new ApiResponse(200, "comments fetched successfully.", result));
 });
 
 const addComment = asyncHandler(async (req, res) => {
@@ -100,7 +101,7 @@ const removeComment = asyncHandler(async (req, res) => {
 
   const deleteRes = await Comment.deleteOne({ _id: commentId });
 
-  if (!deleteRes || (deleteRes && deleteRes.ok != 1)) {
+  if (!deleteRes || (deleteRes && deleteRes.deletedCount < 1)) {
     throw new ApiError(400, "Something went wrong while deleting comment!!");
   }
 

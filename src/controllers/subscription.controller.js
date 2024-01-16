@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/AsyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { Subscription } from "../models/subscription.models.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import mongoose from "mongoose";
 
 const toggleChannelSubscription = asyncHandler(async (req, res) => {
   //get channelId from params
@@ -20,18 +21,18 @@ const toggleChannelSubscription = asyncHandler(async (req, res) => {
   const subscription = await Subscription.aggregate([
     {
       $match: {
-        channel: channelId,
+        channel: new mongoose.Types.ObjectId(channelId),
       },
     },
     {
       $match: {
-        subscriber: req?.user._id,
+        subscriber: new mongoose.Types.ObjectId(req?.user._id),
       },
     },
   ]);
 
-  if (subscription) {
-    await Subscription.deleteOne({ _id: subscription._id });
+  if (subscription[0]) {
+    await Subscription.deleteOne({ _id: subscription[0]._id });
     return res.status(200).json(
       new ApiResponse(200, "Unsubscribed Successfully.", {
         isSubscribed: false,
@@ -65,7 +66,7 @@ const getChannelSubscribersUser = asyncHandler(async (req, res) => {
   const subscribers = await Subscription.aggregate([
     {
       $match: {
-        channel: channelId,
+        channel: new mongoose.Types.ObjectId(channelId),
       },
     },
     {
@@ -76,7 +77,7 @@ const getChannelSubscribersUser = asyncHandler(async (req, res) => {
         as: "subscribers",
         pipeline: [
           {
-            $projectFields: {
+            $project: {
               username: 1,
               avatar: 1,
             },
@@ -90,7 +91,7 @@ const getChannelSubscribersUser = asyncHandler(async (req, res) => {
       },
     },
     {
-      $projectFields: {
+      $project: {
         subscribers: 1,
       },
     },
@@ -99,8 +100,7 @@ const getChannelSubscribersUser = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, "Successfully fetched subscribers."),
-      subscribers
+      new ApiResponse(200, "Successfully fetched subscribers.", subscribers)
     );
 });
 
@@ -111,15 +111,15 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
   //get subscription channel entry
   //return res
 
-  const { subscriberId } = req.params;
-  if (!subscriberId) {
-    throw new ApiError(400, "subscriberId not exist!!");
-  }
+  // const { subscriberId } = req.params;
+  // if (!subscriberId) {
+  //   throw new ApiError(400, "subscriberId not exist!!");
+  // }
 
   const subscriptions = await Subscription.aggregate([
     {
       $match: {
-        subscriber: subscriberId,
+        subscriber: new mongoose.Types.ObjectId(req.user?._id),
       },
     },
     {
@@ -130,7 +130,7 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
         as: "subscriptions",
         pipeline: [
           {
-            $projectFields: {
+            $project: {
               username: 1,
               avatar: 1,
             },
@@ -144,7 +144,7 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
       },
     },
     {
-      $projectFields: {
+      $project: {
         subscriptions: 1,
       },
     },
@@ -153,8 +153,7 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, "Successfully fetched subscriptions."),
-      subscriptions
+      new ApiResponse(200, "Successfully fetched subscriptions.", subscriptions)
     );
 });
 

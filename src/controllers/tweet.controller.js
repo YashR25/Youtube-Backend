@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { Tweet } from "../models/tweet.models.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Like } from "../models/like.models.js";
+import mongoose from "mongoose";
 
 const getChannelTweets = asyncHandler(async (req, res) => {
   //get channelId from params
@@ -18,7 +19,7 @@ const getChannelTweets = asyncHandler(async (req, res) => {
   const tweets = await Tweet.aggregate([
     {
       $match: {
-        owner: channelId,
+        owner: new mongoose.Types.ObjectId(channelId),
       },
     },
   ]);
@@ -32,9 +33,7 @@ const getChannelTweets = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, "Channel tweets fetched successfully.", tweets[0])
-    );
+    .json(new ApiResponse(200, "Channel tweets fetched successfully.", tweets));
 });
 
 const addTweet = asyncHandler(async (req, res) => {
@@ -90,7 +89,7 @@ const removeTweet = asyncHandler(async (req, res) => {
 
   const response = await Tweet.deleteOne({ _id: tweet._id });
 
-  if (!response || (response && response.ok != 1)) {
+  if (!response || (response && response.deletedCount < 1)) {
     throw new ApiError(500, "Something went wrong while deleting tweet");
   }
 

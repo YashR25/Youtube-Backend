@@ -3,6 +3,7 @@ import { Video } from "../models/video.models.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.models.js";
+import mongoose from "mongoose";
 
 const getChannelVideos = asyncHandler(async (req, res) => {
   //get All videos uploaded by channel
@@ -34,7 +35,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
   const respose = await User.aggregate([
     {
       $match: {
-        _id: req.user?._id,
+        _id: new mongoose.Types.ObjectId(req.user?._id),
       },
     },
     {

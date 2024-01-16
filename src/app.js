@@ -25,4 +25,28 @@ import videoRouter from "./routes/video.route.js";
 
 app.use("/api/v1/video", videoRouter);
 
+import tweetRouter from "./routes/tweet.route.js";
+
+app.use("/api/v1/tweet", tweetRouter);
+
+import subscriptionRouter from "./routes/subscription.route.js";
+
+app.use("/api/v1/subscription", subscriptionRouter);
+
+import playlistrouter from "./routes/playlist.route.js";
+
+app.use("/api/v1/playlist", playlistrouter);
+
+import likeRouter from "./routes/like.route.js";
+
+app.use("/api/v1/like", likeRouter);
+
+import commentRouter from "./routes/comment.route.js";
+
+app.use("/api/v1/comment", commentRouter);
+
+import dashboardRouter from "./routes/dashboard.route.js";
+
+app.use("/api/v1/dashboard", dashboardRouter);
+
 export { app };

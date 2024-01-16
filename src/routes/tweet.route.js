@@ -12,6 +12,6 @@ const router = Router();
 router.route("/").post(verifyJwt, addTweet);
 router.route("/:tweetId").delete(verifyJwt, removeTweet);
 router.route("/:tweetId").patch(verifyJwt, updateTweet);
-router.route("/:channelId").get(verifyJwt, getChannelTweets);
+router.route("/c/:channelId").get(verifyJwt, getChannelTweets);
 
 export default router;
