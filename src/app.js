@@ -1,8 +1,19 @@
 import cookieParser from "cookie-parser";
 import express from "express";
 import cors from "cors";
+import http from "http";
+import { Server } from "socket.io";
 
 const app = express();
+
+const httpServer = http.createServer(app);
+
+const io = new Server(http, {
+  cors: {
+    origin: process.env.CORS,
+    credentials: true,
+  },
+});
 
 app.use(
   cors({
@@ -14,6 +25,9 @@ app.use(express.json({ limit: "16kb" }));
 app.use(express.static("public"));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(cookieParser());
+
+//initialize socket.io
+initializeSocketIo(io);
 
 //import user router
 import userRouter from "./routes/user.route.js";
@@ -46,7 +60,8 @@ import commentRouter from "./routes/comment.route.js";
 app.use("/api/v1/comment", commentRouter);
 
 import dashboardRouter from "./routes/dashboard.route.js";
+import { initializeSocketIo } from "./socket/index.js";
 
 app.use("/api/v1/dashboard", dashboardRouter);
 
-export { app };
+export { httpServer };
