@@ -14,10 +14,6 @@ const messageSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Chat",
     },
-    admin: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
     attachments: {
       type: [
         {
