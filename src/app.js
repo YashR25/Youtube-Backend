@@ -64,4 +64,12 @@ import { initializeSocketIo } from "./socket/index.js";
 
 app.use("/api/v1/dashboard", dashboardRouter);
 
+import chatRouter from "./routes/chat.route.js";
+
+app.use("/api/v1/chat", chatRouter);
+
+import messageRouter from "./routes/message.route.js";
+
+app.use("/api/v1/message", messageRouter);
+
 export { httpServer };

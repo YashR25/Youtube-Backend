@@ -153,11 +153,11 @@ const createOrGetOneOnOneChat = asyncHandler(async (req, res, next) => {
     throw new ApiError(500, "Internal error!");
   }
 
-  payload?.participants.map((participantsObjectId) => {
-    if (participantsObjectId === req.user._id.toString()) return;
+  payload?.participants.map((participant) => {
+    if (participant._id.toString() === req.user._id.toString()) return;
     emitSocketEvent(
       req,
-      participantsObjectId,
+      participant._id.toString(),
       ChatEventEnum.NEW_CHAT_EVENT,
       payload
     );
@@ -285,12 +285,12 @@ const updatedGroupName = asyncHandler(async (req, res, next) => {
     throw new ApiError(500, "Internal server error!");
   }
 
-  payload.participants.map((participantObjectId) => {
-    if (participantObjectId === req.user._id) return;
+  payload.participants.map((participant) => {
+    if (participant._id.toString() === req.user._id.toString()) return;
 
     emitSocketEvent(
       req,
-      participantObjectId,
+      participant._id.toString(),
       ChatEventEnum.UPDATE_GROUP_NAME_EVENT,
       payload
     );
@@ -467,12 +467,12 @@ const deleteGroupChat = asyncHandler(async (req, res, next) => {
 
   await deleteCascadeChatMessages(chatId);
 
-  chat.participants.map((participantObjectId) => {
-    if (participantObjectId !== req.user?._id) return;
+  chat.participants.map((participant) => {
+    if (participant._id.toString() !== req.user?._id.toString()) return;
 
     emitSocketEvent(
       req,
-      participantObjectId,
+      participant._id.toString(),
       ChatEventEnum.LEAVE_CHAT_EVENT,
       chat
     );
@@ -573,6 +573,63 @@ const leaveGroupChat = asyncHandler(async (req, res, next) => {
     .json(new ApiResponse(200, "Left a group successfully."));
 });
 
+const createGroupChat = asyncHandler(async (req, res, next) => {
+  const { name, participants } = req.body;
+
+  if (participants.includes(req.user._id.toString())) {
+    throw new ApiError(
+      401,
+      "Participants array should not contain the group creater!"
+    );
+  }
+
+  const members = [...new Set([...participants, req.user._id.toString()])];
+
+  if (members.length < 3) {
+    throw new ApiError(
+      400,
+      "Seems like you have passed duplicate participants."
+    );
+  }
+
+  const groupChat = await Chat.create({
+    name: name,
+    isGroupChat: true,
+    participants: members,
+    admin: req.user?._id,
+  });
+
+  const chat = await Chat.aggregate([
+    {
+      $match: {
+        _id: groupChat._id,
+      },
+    },
+    ...chatCommonAggregation(),
+  ]);
+
+  const payload = chat[0];
+
+  if (!payload) {
+    throw new ApiError(401, "Internal Server Error!");
+  }
+
+  payload.participants.forEach((participant) => {
+    if (participant._id.toString() === req.user._id.toString()) return;
+
+    emitSocketEvent(
+      req,
+      participant._id?.toString(),
+      ChatEventEnum.NEW_CHAT_EVENT,
+      payload
+    );
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Group created successfully!", payload));
+});
+
 export {
   createOrGetOneOnOneChat,
   updatedGroupName,
@@ -584,4 +641,5 @@ export {
   deleteGroupChat,
   deleteOneOnOneChat,
   leaveGroupChat,
+  createGroupChat,
 };

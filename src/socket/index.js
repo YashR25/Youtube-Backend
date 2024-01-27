@@ -1,9 +1,9 @@
 import cookie from "cookie";
-import { asyncHandler } from "../utils/AsyncHandler";
-import { ApiError } from "../utils/ApiError";
+import { asyncHandler } from "../utils/AsyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
 import jwt from "jsonwebtoken";
-import { User } from "../models/user.models";
-import { ChatEventEnum } from "../constants";
+import { User } from "../models/user.models.js";
+import { ChatEventEnum } from "../constants.js";
 
 const mountJoinChatEvent = (socket) => {
   //joining the room with chatId will allow specific event to fired where we dont wont to bother users like typing events
