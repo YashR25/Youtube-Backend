@@ -113,11 +113,11 @@ const createOrGetOneOnOneChat = asyncHandler(async (req, res, next) => {
         isGroupChat: false,
         $and: [
           {
-            participants: { $elematch: { $eq: req.user._id } },
+            participants: { $elemMatch: { $eq: req.user._id } },
           },
           {
             participants: {
-              $elematch: { $eq: new mongoose.Types.ObjectId(recieverId) },
+              $elemMatch: { $eq: new mongoose.Types.ObjectId(recieverId) },
             },
           },
         ],
@@ -153,7 +153,7 @@ const createOrGetOneOnOneChat = asyncHandler(async (req, res, next) => {
     throw new ApiError(500, "Internal error!");
   }
 
-  payload?.participants.map((participant) => {
+  payload?.participants.forEach((participant) => {
     if (participant._id.toString() === req.user._id.toString()) return;
     emitSocketEvent(
       req,
@@ -305,7 +305,7 @@ const getAllChats = asyncHandler(async (req, res, next) => {
   const chats = await Chat.aggregate([
     {
       $match: {
-        participants: { $elematch: { $eq: req.user?._id } },
+        participants: { $elemMatch: { $eq: req.user?._id } },
       },
     },
     {
@@ -459,7 +459,7 @@ const deleteGroupChat = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, "Chat is not exist!");
   }
 
-  if (groupChat.admin.toString() !== req.user?._id.toString()) {
+  if (chat.admin.toString() !== req.user?._id.toString()) {
     throw new ApiError(401, "You are not an admin!");
   }
 
@@ -467,7 +467,7 @@ const deleteGroupChat = asyncHandler(async (req, res, next) => {
 
   await deleteCascadeChatMessages(chatId);
 
-  chat.participants.map((participant) => {
+  chat.participants.forEach((participant) => {
     if (participant._id.toString() !== req.user?._id.toString()) return;
 
     emitSocketEvent(
@@ -547,11 +547,15 @@ const leaveGroupChat = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, "You are not a participant of the group!");
   }
 
-  const updatedChat = await Chat.findByIdAndUpdate(chatId, {
-    $pull: {
-      participants: req.user?._id,
+  const updatedChat = await Chat.findByIdAndUpdate(
+    chatId,
+    {
+      $pull: {
+        participants: req.user?._id,
+      },
     },
-  });
+    { new: true }
+  );
 
   const chat = await Chat.aggregate([
     {

@@ -17,7 +17,7 @@ const chatMessageCommonAggregation = () => {
       $lookup: {
         from: "users",
         localField: "sender",
-        forignField: "_id",
+        foreignField: "_id",
         as: "sender",
         pipeline: [
           {
@@ -50,9 +50,9 @@ const sendMessage = asyncHandler(async (req, res, next) => {
   //return res
 
   const { chatId } = req.params;
-  const { content } = body;
+  const { content } = req.body;
 
-  if (!content || !req.files?.attachments?.length) {
+  if (!content && !req.files?.attachments?.length) {
     throw new ApiError(401, "Message or Content Attachment is required!");
   }
 

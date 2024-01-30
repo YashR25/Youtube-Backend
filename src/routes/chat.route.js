@@ -4,8 +4,10 @@ import {
   addParticipantToGroup,
   createGroupChat,
   createOrGetOneOnOneChat,
+  deleteGroupChat,
   deleteOneOnOneChat,
   getAllChats,
+  getGroupChatDetails,
   leaveGroupChat,
   removeParticipantFromGroup,
   searchAllAvailableUsers,
@@ -25,7 +27,7 @@ const router = Router();
 
 router.use(verifyJwt);
 
-router.route("/").post(getAllChats);
+router.route("/").get(getAllChats);
 
 router.route("/users").get(searchAllAvailableUsers);
 
@@ -43,24 +45,26 @@ router
 
 router
   .route("/group/:chatId")
-  .get(
+  .get(mongoIdPathVariableValidator("chatId"), validate, getGroupChatDetails)
+  .patch(
     mongoIdPathVariableValidator("chatId"),
     updateGroupChatNameValidator(),
     validate,
     updatedGroupName
-  );
+  )
+  .delete(mongoIdPathVariableValidator("chatId"), validate, deleteGroupChat);
 
 router
   .route("/group/:chatId/:participantId")
   .post(
     mongoIdPathVariableValidator("chatId"),
-    mongoIdRequestBodyValidator("participantId"),
+    mongoIdPathVariableValidator("participantId"),
     validate,
     addParticipantToGroup
   )
   .delete(
     mongoIdPathVariableValidator("chatId"),
-    mongoIdRequestBodyValidator("participantId"),
+    mongoIdPathVariableValidator("participantId"),
     validate,
     removeParticipantFromGroup
   );

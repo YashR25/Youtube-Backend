@@ -3,7 +3,7 @@ import { body } from "express-validator";
 const creaetGroupChatValidator = () => {
   return [
     body("name").trim().notEmpty().withMessage("Group name is required!"),
-    body("partcipants")
+    body("participants")
       .isArray({
         max: 100,
         min: 2,

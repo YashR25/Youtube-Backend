@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { verifyJwt } from "../middlewares/auth.middleware";
-import { mongoIdPathVariableValidator } from "../validator/mongodb.validator";
-import { validate } from "../validator/validate";
+import { verifyJwt } from "../middlewares/auth.middleware.js";
+import { mongoIdPathVariableValidator } from "../validator/mongodb.validator.js";
+import { validate } from "../validator/validate.js";
 import {
   getAllMessages,
   sendMessage,
