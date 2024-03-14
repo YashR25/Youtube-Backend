@@ -5,6 +5,55 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { Like } from "../models/like.models.js";
 import mongoose from "mongoose";
 
+const commonCommentAggregation = (req) => {
+  return [
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "comment",
+        as: "likes",
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [
+          {
+            $project: {
+              usename: 1,
+              avatar: 1,
+              fullName: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $addFields: {
+        owner: {
+          $first: "$owner",
+        },
+        isLiked: {
+          $cond: {
+            if: {
+              $in: [
+                new mongoose.Types.ObjectId(req.user._id),
+                "$likes.likedBy",
+              ],
+            },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+  ];
+};
+
 const getVideoComments = asyncHandler(async (req, res) => {
   //get VideoId from Params
   //get page and limit from query
@@ -24,6 +73,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
         video: new mongoose.Types.ObjectId(videoId),
       },
     },
+    ...commonCommentAggregation(req),
   ]);
 
   const result = await Comment.aggregatePaginate(commentAggregate, {
@@ -71,9 +121,18 @@ const addComment = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Something went wrong while adding comment.");
   }
 
+  const result = await Comment.aggregate([
+    {
+      $match: {
+        _id: addedComment._id,
+      },
+    },
+    ...commonCommentAggregation(req),
+  ]);
+
   return res
     .status(200)
-    .json(new ApiResponse(200, "Comment added successfully.", addedComment));
+    .json(new ApiResponse(200, "Comment added successfully.", result[0]));
 });
 
 const removeComment = asyncHandler(async (req, res) => {
@@ -151,11 +210,22 @@ const updateComment = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Something went wrong while updating comment.");
   }
 
+  const result = await Comment.aggregate([
+    {
+      $match: {
+        _id: updatedComment._id,
+      },
+    },
+    ...commonCommentAggregation(req),
+  ]);
+
+  if (!result) {
+    throw new ApiError(500, "Internal Server Error!");
+  }
+
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, "Comment updated successfully.", updatedComment)
-    );
+    .json(new ApiResponse(200, "Comment updated successfully.", result[0]));
 });
 
 export { getVideoComments, addComment, removeComment, updateComment };

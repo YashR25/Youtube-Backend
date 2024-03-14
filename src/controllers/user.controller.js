@@ -121,7 +121,7 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 
   if (!password) {
-    throw new ApiError(401, "Password is requires!!");
+    throw new ApiError(401, "Password is required!!");
   }
 
   // console.log(req.body);
@@ -224,7 +224,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   );
 
   if (!decodedToken) {
-    throw new ApiError(401, "refresh token expired!!");
+    throw new ApiError(404, "refresh token expired!!");
   }
 
   const user = await User.findById(decodedToken._id);
@@ -512,10 +512,12 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     throw new ApiError(400, "user not exist!!");
   }
 
+  // const currentUser = await User.findById(req.user._id);
+
   const watchHistory = await User.aggregate([
     {
       $match: {
-        _id: new mongoose.Types.ObjectId(user._id),
+        _id: new mongoose.Types.ObjectId(req.user._id),
       },
     },
     {
@@ -531,6 +533,15 @@ const getWatchHistory = asyncHandler(async (req, res) => {
               localField: "owner",
               foreignField: "_id",
               as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    refreshToken: 0,
+                    password: 0,
+                    watchHistory: 0,
+                  },
+                },
+              ],
             },
           },
           {
@@ -541,19 +552,22 @@ const getWatchHistory = asyncHandler(async (req, res) => {
             },
           },
           {
-            $project: {
-              username: 1,
-              fullName: 1,
-              email: 1,
-              avatar: 1,
+            $sort: {
+              createdAt: -1,
             },
           },
         ],
       },
     },
     {
-      $project: {
+      $addFields: {
         watchHistory: "$watchHistory",
+      },
+    },
+    {
+      $project: {
+        refreshToken: 0,
+        password: 0,
       },
     },
   ]);
@@ -565,15 +579,87 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     );
   }
 
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        "Successfully fetched watch history",
-        watchHistory[0]
-      )
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      "Successfully fetched watch history",
+      // watchHistory[0]
+      watchHistory[0]
+    )
+  );
+});
+
+const addVideoToWatchHistory = asyncHandler(async (req, res) => {
+  //get videoId from params
+  //check if exist
+  //get current user from db
+  //add current videoId to user watchhistory
+  //return res
+
+  const { videoId } = req.params;
+
+  if (!videoId) {
+    throw new ApiError(404, "VideoId is required!!");
+  }
+
+  const currentUser = await User.findById(req.user._id);
+
+  const isIncluded = currentUser.watchHistory.includes(videoId);
+
+  if (!isIncluded) {
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $push: {
+          watchHistory: videoId,
+        },
+      },
+      {
+        new: true,
+      }
     );
+
+    if (!updatedUser) {
+      throw new ApiError("500", "something went wrong while updating user");
+    }
+  }
+
+  const payload = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user._id),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+      },
+    },
+    {
+      $addFields: {
+        watchHistory: "$watchHistory",
+      },
+    },
+    {
+      $project: {
+        refreshToken: 0,
+        password: 0,
+      },
+    },
+  ]);
+
+  if (!payload || payload.length <= 0) {
+    throw new ApiError(500, "Something went wrong!!");
+  }
+
+  const user = payload[0];
+
+  return res.json(
+    new ApiResponse(200, "Successfully added video to watchHistory", user)
+  );
 });
 
 export {
@@ -588,4 +674,5 @@ export {
   getWatchHistory,
   getChannelInfo,
   getCurrentUser,
+  addVideoToWatchHistory,
 };

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { verifyJwt } from "../middlewares/auth.middleware.js";
 import {
+  getAllSubscriptionsVideos,
   getChannelSubscribersUser,
   getSubscribedChannels,
   toggleChannelSubscription,
@@ -19,5 +20,9 @@ router
 router
   .route("/getSubscriptions/:subscriberId")
   .get(verifyJwt, getSubscribedChannels);
+
+router
+  .route("/getAllSubscriptionVideos/")
+  .get(verifyJwt, getAllSubscriptionsVideos);
 
 export default router;

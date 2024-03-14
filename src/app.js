@@ -8,12 +8,13 @@ const app = express();
 
 const httpServer = http.createServer(app);
 
-const io = new Server(http, {
+const io = new Server(httpServer, {
   cors: {
     origin: process.env.CORS,
     credentials: true,
   },
 });
+app.set("io", io);
 
 app.use(
   cors({
@@ -25,10 +26,14 @@ app.use(express.json({ limit: "16kb" }));
 app.use(express.static("public"));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(cookieParser());
-app.set("io", io);
 
 //initialize socket.io
 initializeSocketIo(io);
+
+app.get("/api/v1/", (req, res) => {
+  console.log(req.socket);
+  return res.json({ message: "ok" });
+});
 
 //import user router
 import userRouter from "./routes/user.route.js";

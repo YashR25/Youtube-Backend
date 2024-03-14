@@ -95,19 +95,21 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
   }
 
   if (like.length <= 0) {
-    await Like.create({
+    const updatedLike = await Like.create({
       likedBy: req.user?._id,
       comment: commentId,
     });
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(200, "Liked comment successfully.", { isLiked: true })
-      );
+    return res.status(200).json(
+      new ApiResponse(200, "Liked comment successfully.", {
+        id: updatedLike.comment,
+        isLiked: true,
+      })
+    );
   } else {
     await Like.deleteOne({ _id: like[0]._id });
     return res.status(200).json(
       new ApiResponse(200, "unLiked comment successfully.", {
+        id: like[0].comment,
         isLiked: false,
       })
     );
@@ -156,18 +158,20 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
       likedBy: req.user?._id,
       tweet: tweetId,
     });
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(200, "Liked tweet successfully.", { isLiked: true })
-      );
+    return res.status(200).json(
+      new ApiResponse(200, "Liked tweet successfully.", {
+        tweetId,
+        isLiked: true,
+      })
+    );
   } else {
     await Like.deleteOne({ _id: like[0]._id });
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(200, "unLiked tweet successfully.", { isLiked: false })
-      );
+    return res.status(200).json(
+      new ApiResponse(200, "unLiked tweet successfully.", {
+        tweetId,
+        isLiked: false,
+      })
+    );
   }
 });
 
@@ -218,6 +222,11 @@ const getLikedVideos = asyncHandler(async (req, res) => {
             },
           },
           {
+            $sort: {
+              createdAt: -1,
+            },
+          },
+          {
             $project: {
               videoFile: 1,
               thumbnail: 1,
@@ -229,6 +238,13 @@ const getLikedVideos = asyncHandler(async (req, res) => {
             },
           },
         ],
+      },
+    },
+    {
+      $addFields: {
+        video: {
+          $first: "$video",
+        },
       },
     },
     {

@@ -16,7 +16,30 @@ const getUserPlaylist = asyncHandler(async (req, res) => {
     throw new ApiError(400, "userId not exist!!");
   }
 
-  const playlists = await Playlist.find({ owner: userId });
+  const playlists = await Playlist.aggregate([
+    {
+      $match: {
+        owner: new mongoose.Types.ObjectId(userId),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "videos",
+        foreignField: "_id",
+        as: "videos",
+        pipeline: [
+          {
+            $sort: {
+              createdAt: 1,
+            },
+          },
+        ],
+      },
+    },
+  ]);
+
+  // const playlists = await Playlist.find({ owner: userId });
 
   if (!playlists) {
     throw new ApiError(400, "Something went wrong while fetching playlist");
@@ -106,6 +129,11 @@ const getPlaylistById = asyncHandler(async (req, res) => {
             },
           },
           {
+            $sort: {
+              createdAt: 1,
+            },
+          },
+          {
             $project: {
               videoFile: 1,
               thumbnail: 1,
@@ -119,8 +147,28 @@ const getPlaylistById = asyncHandler(async (req, res) => {
       },
     },
     {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [
+          {
+            $project: {
+              fullName: 1,
+              username: 1,
+              avatar: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
       $addFields: {
         videos: "$videos",
+        owner: {
+          $first: "$owner",
+        },
       },
     },
   ]);
@@ -194,6 +242,22 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
 
   const updatedPlaylist = await playlist.save({ validateBeforeSave: false });
 
+  const result = await Playlist.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(playlistId),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "videos",
+        foreignField: "_id",
+        as: "videos",
+      },
+    },
+  ]);
+
   if (!updatedPlaylist) {
     throw new ApiError(
       500,
@@ -207,7 +271,7 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         "video removed from playlist successfully.",
-        updatedPlaylist
+        result[0]
       )
     );
 });

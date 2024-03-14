@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError.js";
 import jwt from "jsonwebtoken";
 import { User } from "../models/user.models.js";
 import { ChatEventEnum } from "../constants.js";
+import { Video } from "../models/video.models.js";
 
 const mountJoinChatEvent = (socket) => {
   //joining the room with chatId will allow specific event to fired where we dont wont to bother users like typing events
@@ -16,6 +17,55 @@ const mountJoinChatEvent = (socket) => {
 const mountParticipantTypingEvent = (socket) => {
   socket.on(ChatEventEnum.TYPING_EVENT, (chatId) => {
     socket.in(chatId).emit(ChatEventEnum.TYPING_EVENT, chatId);
+  });
+};
+
+const mountSearchAutoSuggestEvent = (socket, userId) => {
+  socket.on("search-auto-suggest", async (data) => {
+    try {
+      const result = await Video.aggregate([
+        {
+          $search: {
+            index: "search-video-autocomplete",
+            autocomplete: {
+              query: data,
+              path: "title",
+            },
+            highlight: {
+              path: "title",
+            },
+          },
+        },
+        {
+          $limit: 5,
+        },
+        {
+          $project: {
+            title: 1,
+            highlights: {
+              $meta: "searchHighlights",
+            },
+          },
+        },
+      ]);
+      const suggestions = [];
+      if (result.length > 0) {
+        result.map((item) => {
+          if (item.highlights.length > 0) {
+            item.highlights.map((highlightItem) => {
+              highlightItem.texts.map((textItem) => {
+                suggestions.push(textItem.value);
+              });
+            });
+          }
+        });
+      }
+      socket.emit("receive-suggestion", {
+        data: suggestions,
+      });
+    } catch (error) {
+      console.log(error);
+    }
   });
 };
 
@@ -57,6 +107,7 @@ const initializeSocketIo = (io) => {
       mountJoinChatEvent(socket);
       mountParticipantTypingEvent(socket);
       mountParticipantStopTypingEvent(socket);
+      mountSearchAutoSuggestEvent(socket, user._id.toString());
 
       socket.on(ChatEventEnum.DISCONNECT_EVENT, () => {
         console.log("User has disconnected. userId: ", user._id.toString());

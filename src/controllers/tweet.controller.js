@@ -22,6 +22,36 @@ const getChannelTweets = asyncHandler(async (req, res) => {
         owner: new mongoose.Types.ObjectId(channelId),
       },
     },
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "tweet",
+        as: "likes",
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+      },
+    },
+    {
+      $addFields: {
+        isLiked: {
+          $cond: {
+            if: { $in: [req.user?.id, "$likes.likedBy"] },
+            then: true,
+            else: false,
+          },
+        },
+        owner: {
+          $first: "$owner",
+        },
+      },
+    },
   ]);
 
   if (!tweets) {

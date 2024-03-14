@@ -35,6 +35,7 @@ const toggleChannelSubscription = asyncHandler(async (req, res) => {
     await Subscription.deleteOne({ _id: subscription[0]._id });
     return res.status(200).json(
       new ApiResponse(200, "Unsubscribed Successfully.", {
+        id: subscription[0].channel,
         isSubscribed: false,
       })
     );
@@ -43,11 +44,12 @@ const toggleChannelSubscription = asyncHandler(async (req, res) => {
       subscriber: req?.user._id,
       channel: channelId,
     });
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(200, "Subscribed Successfully.", { isSubscribed: true })
-      );
+    return res.status(200).json(
+      new ApiResponse(200, "Subscribed Successfully.", {
+        id: channelId,
+        isSubscribed: true,
+      })
+    );
   }
 });
 
@@ -157,8 +159,59 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     );
 });
 
+const getAllSubscriptionsVideos = asyncHandler(async (req, res) => {
+  const videos = await Subscription.aggregate([
+    {
+      $match: {
+        subscriber: new mongoose.Types.ObjectId(req.user?._id),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "channel",
+        foreignField: "owner",
+        as: "videos",
+        pipeline: [
+          {
+            $match: {
+              isPublished: true,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: "$videos",
+    },
+    {
+      $group: {
+        _id: null,
+        videos: {
+          $push: "$videos",
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        videos: 1,
+      },
+    },
+  ]);
+
+  res.json(
+    new ApiResponse(
+      200,
+      "All subscription videos fetched successfully",
+      videos[0]
+    )
+  );
+});
+
 export {
   toggleChannelSubscription,
   getChannelSubscribersUser,
   getSubscribedChannels,
+  getAllSubscriptionsVideos,
 };

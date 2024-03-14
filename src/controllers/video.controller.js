@@ -7,6 +7,11 @@ import {
 import { Video } from "../models/video.models.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
+import { getVideoDurationInSeconds } from "get-video-duration";
+import os from "os";
+import { Like } from "../models/like.models.js";
+import { User } from "../models/user.models.js";
+import { Playlist } from "../models/playlist.models.js";
 
 const publishVideo = asyncHandler(async (req, res) => {
   //get data from body
@@ -119,6 +124,25 @@ const deleteVideo = asyncHandler(async (req, res) => {
     "image"
   );
 
+  //delete from like collection
+  await Like.find({
+    video: videoId,
+  });
+
+  //delete from watch history
+  await User.updateMany({
+    $pull: {
+      videos: videoId,
+    },
+  });
+
+  //delete from playlists
+  await Playlist.updateMany({
+    $pull: {
+      videos: videoId,
+    },
+  });
+
   if (!isVideoDeleted || !isThumbnailDeleted) {
     throw new ApiError(
       401,
@@ -195,15 +219,95 @@ const getVideoById = asyncHandler(async (req, res) => {
     throw new ApiError(401, "VideoId does not exist!!");
   }
 
-  const video = await Video.findById(videoId);
+  const selectedVideo = await Video.findById(videoId);
 
-  if (!video) {
+  if (!selectedVideo) {
+    throw new ApiError(404, "video not found!!");
+  }
+
+  selectedVideo.views += 1;
+
+  await selectedVideo.save({ validateBeforeSave: false });
+
+  const video = await Video.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(videoId),
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "owner",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [
+          {
+            $project: {
+              username: 1,
+              fullName: 1,
+              avatar: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "video",
+        as: "likes",
+      },
+    },
+    {
+      $addFields: {
+        owner: {
+          $first: "$owner",
+        },
+        isSubscribed: {
+          $cond: {
+            if: {
+              $in: [
+                new mongoose.Types.ObjectId(req.user?.id),
+                "$subscribers.subscriber",
+              ],
+            },
+            then: true,
+            else: false,
+          },
+        },
+        isLiked: {
+          $cond: {
+            if: {
+              $in: [
+                new mongoose.Types.ObjectId(req.user?.id),
+                "$likes.likedBy",
+              ],
+            },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+  ]);
+
+  if (!video.length < 0) {
     throw new ApiError(401, "Video you are trying to get is not available.");
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Video fetched successfully.", video));
+    .json(new ApiResponse(200, "Video fetched successfully.", video[0]));
 });
 
 const getAllVideos = asyncHandler(async (req, res) => {
@@ -236,10 +340,15 @@ const getAllVideos = asyncHandler(async (req, res) => {
     });
   }
 
-  pipeline.push({ $match: { isPublished: true } });
+  if (!userId) {
+    pipeline.push({ $match: { isPublished: true } });
+  }
+
+  if (userId && userId.toString() !== req.user?._id.toString()) {
+    pipeline.push({ $match: { isPublished: true } });
+  }
 
   if (sortBy && sortType) {
-    console.log(sortBy, sortType);
     pipeline.push({
       $sort: {
         [sortBy]: sortType === "asc" ? 1 : -1,
@@ -248,6 +357,55 @@ const getAllVideos = asyncHandler(async (req, res) => {
   } else {
     pipeline.push({ $sort: { createdAt: -1 } });
   }
+
+  pipeline.push(
+    ...[
+      {
+        $lookup: {
+          from: "subscriptions",
+          localField: "owner",
+          foreignField: "channel",
+          as: "subscribers",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "owner",
+          foreignField: "_id",
+          as: "owner",
+          pipeline: [
+            {
+              $project: {
+                username: 1,
+                fullName: 1,
+                avatar: 1,
+              },
+            },
+          ],
+        },
+      },
+      {
+        $addFields: {
+          owner: {
+            $first: "$owner",
+          },
+          isSubscribed: {
+            $cond: {
+              if: {
+                $in: [
+                  new mongoose.Types.ObjectId(req.user._id),
+                  "$subscribers.subscriber",
+                ],
+              },
+              then: true,
+              else: false,
+            },
+          },
+        },
+      },
+    ]
+  );
 
   const videosAggregate = Video.aggregate(pipeline);
 
@@ -309,7 +467,130 @@ const togglePublishedStatus = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Video updated successfully.", updateVideo));
+    .json(new ApiResponse(200, "Video updated successfully.", updatedVideo));
+});
+
+const altPublishVideoForTest = asyncHandler(async (req, res) => {
+  //get data from body
+  //validate data
+  //get video file from multer middleware
+  //check if videolocalpath exist
+  //if exist than upload on cloudinary
+  //check if upladed successfully
+  //add video object in db
+  //return res
+
+  const { title, description } = req.body;
+
+  if (!title || !description) {
+    throw new ApiError(400, "All fields required!!");
+  }
+
+  const videoLocalPath = req.files?.video[0]?.path;
+  let thumbnailLocalPath;
+  if (req.files && req.files.thumbnail.length > 0) {
+    thumbnailLocalPath = req.files?.thumbnail[0]?.path;
+  }
+
+  if (!videoLocalPath) {
+    throw new ApiError(400, "Video file not exist!!");
+  }
+
+  if (!thumbnailLocalPath) {
+    throw new ApiError(400, "thumbnail not exist!!");
+  }
+
+  const thumbnailResponse = await uploadOnCloudinary(thumbnailLocalPath);
+
+  if (!thumbnailResponse) {
+    throw new ApiError(
+      400,
+      "Something went wrong while uploading thumbnail on cloudinary!!"
+    );
+  }
+
+  const thumbnail = {
+    publicId: thumbnailResponse.public_id,
+    url: thumbnailResponse.url,
+  };
+
+  const videoFileName = req.files.video[0].filename;
+  const videoUrl = `temp/${videoFileName}`;
+
+  const videoFile = {
+    publicId: videoLocalPath,
+    url: videoUrl,
+  };
+
+  const videoDuration = await getVideoDurationInSeconds(videoLocalPath);
+
+  const videoToAdded = {
+    videoFile: videoFile,
+    thumbnail: thumbnail,
+    title: title,
+    description: description,
+    duration: videoDuration,
+    owner: req.user?._id,
+  };
+
+  const video = await Video.create(videoToAdded);
+
+  if (!video) {
+    throw new ApiError(
+      401,
+      "Something went wrong while adding video to databse"
+    );
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Video published successfully.", video));
+});
+
+const searchSuggestControlle = asyncHandler(async (req, res) => {
+  try {
+    const result = await Video.aggregate([
+      {
+        $search: {
+          index: "search-video-autocomplete",
+          autocomplete: {
+            query: req.query.t,
+            path: "title",
+          },
+          highlight: {
+            path: "title",
+          },
+        },
+      },
+      {
+        $limit: 5,
+      },
+      {
+        $project: {
+          title: 1,
+          highlights: {
+            $meta: "searchHighlights",
+          },
+        },
+      },
+    ]);
+    console.log(result);
+    const suggestions = [];
+    if (result.length > 0) {
+      result.map((item) => {
+        if (item.highlights.length > 0) {
+          item.highlights.map((highlightItem) => {
+            highlightItem.texts.map((textItem) => {
+              suggestions.push(textItem.value);
+            });
+          });
+        }
+      });
+    }
+    return res.send(new ApiResponse(200, "suggestions", suggestions));
+  } catch (error) {
+    console.log(error);
+  }
 });
 
 export {
@@ -319,4 +600,6 @@ export {
   getVideoById,
   getAllVideos,
   togglePublishedStatus,
+  altPublishVideoForTest,
+  searchSuggestControlle,
 };

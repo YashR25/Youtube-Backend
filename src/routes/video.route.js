@@ -2,10 +2,12 @@ import { Router } from "express";
 import { verifyJwt } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import {
+  altPublishVideoForTest,
   deleteVideo,
   getAllVideos,
   getVideoById,
   publishVideo,
+  searchSuggestControlle,
   togglePublishedStatus,
   updateVideo,
 } from "../controllers/video.controller.js";
@@ -35,5 +37,22 @@ router.route("/").get(verifyJwt, getAllVideos);
 router
   .route("/toggle/publish/:videoId")
   .patch(verifyJwt, togglePublishedStatus);
+
+router.route("/publish").post(
+  verifyJwt,
+  upload.fields([
+    {
+      name: "video",
+      maxCount: 1,
+    },
+    {
+      name: "thumbnail",
+      maxCount: 1,
+    },
+  ]),
+  altPublishVideoForTest
+);
+
+router.route("/search/suggest").get(verifyJwt, searchSuggestControlle);
 
 export default router;
