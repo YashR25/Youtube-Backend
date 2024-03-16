@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 
 const likeSchema = mongoose.Schema(
   {
@@ -24,5 +25,7 @@ const likeSchema = mongoose.Schema(
     timestamps: true,
   }
 );
+
+likeSchema.plugin(mongooseAggregatePaginate);
 
 export const Like = mongoose.model("Like", likeSchema);

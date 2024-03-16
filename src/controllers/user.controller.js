@@ -507,14 +507,55 @@ const getWatchHistory = asyncHandler(async (req, res) => {
   //return res
 
   const user = req.user;
+  const { page, limit } = req.query;
 
   if (!user) {
     throw new ApiError(400, "user not exist!!");
   }
 
-  // const currentUser = await User.findById(req.user._id);
+  const currentUser = await User.findById(req.user._id);
 
-  const watchHistory = await User.aggregate([
+  const totalDocs = currentUser.watchHistory.length;
+
+  let hasNextPage = true;
+
+  if (totalDocs <= page * limit) {
+    hasNextPage = false;
+  }
+
+  const videoPipeline = [
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [
+          {
+            $project: {
+              refreshToken: 0,
+              password: 0,
+              watchHistory: 0,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $addFields: {
+        owner: {
+          $first: "$owner",
+        },
+      },
+    },
+    {
+      $sort: {
+        createdAt: -1,
+      },
+    },
+  ];
+
+  const pipeline = [
     {
       $match: {
         _id: new mongoose.Types.ObjectId(req.user._id),
@@ -525,38 +566,16 @@ const getWatchHistory = asyncHandler(async (req, res) => {
         from: "videos",
         localField: "watchHistory",
         foreignField: "_id",
+        as: "videos",
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
         as: "watchHistory",
-        pipeline: [
-          {
-            $lookup: {
-              from: "users",
-              localField: "owner",
-              foreignField: "_id",
-              as: "owner",
-              pipeline: [
-                {
-                  $project: {
-                    refreshToken: 0,
-                    password: 0,
-                    watchHistory: 0,
-                  },
-                },
-              ],
-            },
-          },
-          {
-            $addFields: {
-              owner: {
-                $first: "$owner",
-              },
-            },
-          },
-          {
-            $sort: {
-              createdAt: -1,
-            },
-          },
-        ],
+        pipeline: videoPipeline,
       },
     },
     {
@@ -566,11 +585,25 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     },
     {
       $project: {
-        refreshToken: 0,
-        password: 0,
+        watchHistory: 1,
       },
     },
-  ]);
+  ];
+
+  if (page && limit) {
+    videoPipeline.push(
+      ...[
+        {
+          $skip: (page - 1) * limit,
+        },
+        {
+          $limit: parseInt(limit),
+        },
+      ]
+    );
+  }
+
+  const watchHistory = await User.aggregate(pipeline);
 
   if (!watchHistory) {
     throw new ApiError(
@@ -584,7 +617,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
       200,
       "Successfully fetched watch history",
       // watchHistory[0]
-      watchHistory[0]
+      { docs: watchHistory[0].watchHistory, hasNextPage, page }
     )
   );
 });

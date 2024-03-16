@@ -183,7 +183,9 @@ const getLikedVideos = asyncHandler(async (req, res) => {
 
   const userId = req.user?._id;
 
-  const likedVideos = await Like.aggregate([
+  const { page, limit } = req.query;
+
+  const pipeline = [
     {
       $match: {
         likedBy: new mongoose.Types.ObjectId(userId),
@@ -252,7 +254,14 @@ const getLikedVideos = asyncHandler(async (req, res) => {
         video: 1,
       },
     },
-  ]);
+  ];
+
+  const likedVideos = Like.aggregate(pipeline);
+
+  const result = await Like.aggregatePaginate(likedVideos, {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+  });
 
   if (!likedVideos) {
     throw new ApiError(
@@ -264,7 +273,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, "All liked videos fetched succesfully.", likedVideos)
+      new ApiResponse(200, "All liked videos fetched succesfully.", result)
     );
 });
 

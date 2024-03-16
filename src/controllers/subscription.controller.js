@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { Subscription } from "../models/subscription.models.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
+import { Video } from "../models/video.models.js";
 
 const toggleChannelSubscription = asyncHandler(async (req, res) => {
   //get channelId from params
@@ -160,52 +161,99 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
 });
 
 const getAllSubscriptionsVideos = asyncHandler(async (req, res) => {
-  const videos = await Subscription.aggregate([
+  const { page, limit } = req.query;
+
+  const subscriptions = await Subscription.aggregate([
     {
       $match: {
-        subscriber: new mongoose.Types.ObjectId(req.user?._id),
+        subscriber: new mongoose.Types.ObjectId(req.user._id),
       },
     },
     {
-      $lookup: {
-        from: "videos",
-        localField: "channel",
-        foreignField: "owner",
-        as: "videos",
-        pipeline: [
-          {
-            $match: {
-              isPublished: true,
-            },
-          },
-        ],
-      },
-    },
-    {
-      $unwind: "$videos",
-    },
-    {
-      $group: {
-        _id: null,
-        videos: {
-          $push: "$videos",
-        },
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        videos: 1,
-      },
+      $unset: ["subscriber", "_id", "_v"],
     },
   ]);
 
+  let subscriptionIds = [];
+
+  subscriptions.map((subscription) => {
+    subscriptionIds.push(subscription.channel);
+  });
+
+  const skip = (page - 1) * limit;
+
+  const totalDocs = await Video.find({
+    owner: { $in: subscriptionIds },
+    isPublished: true,
+  }).countDocuments();
+
+  let hasNextPage = true;
+
+  if (page * limit >= totalDocs) {
+    hasNextPage = false;
+  }
+
+  const subscriptionVideos = await Video.find({
+    owner: {
+      $in: subscriptionIds,
+    },
+    isPublished: true,
+  })
+    .skip(skip)
+    .limit(limit);
+
+  /* using aggregation */
+  // const pipeline = [
+  //   {
+  //     $match: {
+  //       subscriber: new mongoose.Types.ObjectId(req.user?._id),
+  //     },
+  //   },
+  //   {
+  //     $lookup: {
+  //       from: "videos",
+  //       localField: "channel",
+  //       foreignField: "owner",
+  //       as: "videos",
+  //       pipeline: [
+  //         {
+  //           $match: {
+  //             isPublished: true,
+  //           },
+  //         },
+  //       ],
+  //     },
+  //   },
+  //   {
+  //     $unwind: "$videos",
+  //   },
+  //   {
+  //     $group: {
+  //       _id: null,
+  //       videos: {
+  //         $push: "$videos",
+  //       },
+  //       count: {
+  //         $sum: 1,
+  //       },
+  //     },
+  //   },
+  //   {
+  //     $project: {
+  //       _id: 0,
+  //       videos: 1,
+  //     },
+  //   },
+  // ];
+
+  // const videos = await Subscription.aggregate(pipeline);
+
   res.json(
-    new ApiResponse(
-      200,
-      "All subscription videos fetched successfully",
-      videos[0]
-    )
+    new ApiResponse(200, "All subscription videos fetched successfully", {
+      docs: subscriptionVideos,
+      hasNextPage,
+      page,
+    })
   );
 });
 
