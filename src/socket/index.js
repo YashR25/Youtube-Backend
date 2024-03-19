@@ -48,18 +48,24 @@ const mountSearchAutoSuggestEvent = (socket, userId) => {
           },
         },
       ]);
+      console.log(result);
       const suggestions = [];
       if (result.length > 0) {
         result.map((item) => {
-          if (item.highlights.length > 0) {
-            item.highlights.map((highlightItem) => {
-              highlightItem.texts.map((textItem) => {
-                suggestions.push(textItem.value);
-              });
-            });
-          }
+          suggestions.push(item.title);
         });
       }
+      // if (result.length > 0) {
+      //   result.map((item) => {
+      //     if (item.highlights.length > 0) {
+      //       item.highlights.map((highlightItem) => {
+      //         highlightItem.texts.map((textItem) => {
+      //           suggestions.push(textItem.value);
+      //         });
+      //       });
+      //     }
+      //   });
+      // }
       socket.emit("receive-suggestion", {
         data: suggestions,
       });
